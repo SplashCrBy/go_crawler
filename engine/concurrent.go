@@ -1,13 +1,9 @@
 package engine
 
-import (
-	"crawlers/model"
-	"log"
-)
-
 type ConcurrentEngine struct {
 	Scheduler   Scheduler
 	WorkerCount int
+	ItemChan    chan Item
 }
 
 /*
@@ -41,25 +37,22 @@ func (e *ConcurrentEngine) Run(seeds ...Request) {
 
 	for _, r := range seeds {
 		if isDuplicate(r.Url) {
-			log.Printf("Duplicate request: %s", r.Url)
+			//log.Printf("Duplicate request: %s", r.Url)
 			continue
 		}
 		e.Scheduler.Submit(r)
 	}
-
-	profileCount := 0
 	for {
 		result := <-out
+
 		for _, item := range result.Items {
-			if _, ok := item.(model.Profile); ok {
-				log.Printf("got item: #%d %v", profileCount, item)
-				profileCount++
-			}
+			go func(i Item) { e.ItemChan <- i }(item)
+
 		}
 
 		for _, request := range result.Requests {
 			if isDuplicate(request.Url) {
-				log.Printf("Duplicate request: %s", request.Url)
+				//log.Printf("Duplicate request: %s", request.Url)
 				continue
 			}
 			e.Scheduler.Submit(request)
